@@ -52,7 +52,6 @@ struct Frame {
     cr_plane: Vec<u8>,
 }
 
-// TODO: is this correct? Are we placing the components in the right "buckets"?
 fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
     frame.y_plane.clear();
     frame.cb_plane.clear();
