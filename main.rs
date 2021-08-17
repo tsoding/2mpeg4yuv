@@ -225,14 +225,14 @@ fn main() -> io::Result<()> {
         }
 
         for (index, rect) in rects.iter_mut().enumerate() {
-            if let Some(collision) = rect.update() {
-                to_split.push((index, collision));
+            if let Some(orient) = rect.update() {
+                to_split.push((index, orient));
             }
         }
 
-        for (index, collision) in to_split.iter().rev() {
+        for (index, orient) in to_split.iter().rev() {
             let rect = rects.remove(*index);
-            let (left, right) = rect.split(*collision);
+            let (left, right) = rect.split(*orient);
 
             if rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
                 rects.push(left);
