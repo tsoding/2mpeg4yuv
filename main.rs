@@ -2,99 +2,98 @@ use std::fs::File;
 use std::io;
 use std::io::{Write, BufWriter};
 
-#[allow(dead_code)]
-fn write_ppm_image(sink: &mut impl Write, pixels: &[u32], stride: usize) -> io::Result<()> {
-    let w = stride;
-    let h = pixels.len() / stride;
-    write!(sink, "P6\n{} {} 255\n", w, h)?;
-    for pixel in pixels {
-        // 0xRRGGBB
-        let r = ((pixel >> 8*2) & 0xFF) as u8;
-        let g = ((pixel >> 8*1) & 0xFF) as u8;
-        let b = ((pixel >> 8*0) & 0xFF) as u8;
-        sink.write(&[r, g, b])?;
-    }
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn generate_uv_pattern(pixels: &mut [u32], stride: usize) {
-    let w = stride;
-    let h = pixels.len() / w;
-    for y in 0..h {
-        for x in 0..w {
-            let u = x as f32 / w as f32;
-            let v = y as f32 / h as f32;
-            let r = (u*255.0) as u32;
-            let g = (v*255.0) as u32;
-            pixels[y*w + x] = (r << 8*2) | (g << 8*1);
-        }
-    }
-}
-
-fn different_kind_of_pattern(pixels: &mut [u32], stride: usize, luma: u8) {
-    let w = stride;
-    let h = pixels.len() / w;
-    for y in 0..h {
-        for x in 0..w {
-            let cr = x as u32 & 0xFF;
-            let cb = y as u32 & 0xFF;
-            pixels[y*stride + x] = ((luma as u32) << (8*2)) | (cr << (8*1)) | (cb << (8*0));
-        }
-    }
-}
-
-fn write_yuv4mpeg2_frame_c444(sink: &mut impl Write, pixels: &[u32]) -> io::Result<()> {
-    writeln!(sink, "FRAME")?;
-    for pixel in pixels {
-        let y  = ((pixel >> 8*2) & 0xFF) as u8;
-        let cr = ((pixel >> 8*1) & 0xFF) as u8;
-        let cb = ((pixel >> 8*0) & 0xFF) as u8;
-        sink.write(&[y, cr, cb])?;
-    }
-    Ok(())
-}
-
-fn rgb_to_ycrcb((r, g, b): (u8, u8, u8)) -> (u8, u8, u8) {
-    let rf = r as f32;
-    let gf = g as f32;
-    let bf = b as f32;
+// TODO: is this correct?
+fn rgb_to_ycrcb(pixel: u32) -> (u8, u8, u8) {
+    let rf = ((pixel >> (8*2)) & 0xFF) as f32;
+    let gf = ((pixel >> (8*1)) & 0xFF) as f32;
+    let bf = ((pixel >> (8*0)) & 0xFF) as f32;
     let y  = 16.0  + (  65.738*rf + 129.057*gf +  25.064*bf)/256.0;
     let cb = 128.0 + (- 37.945*rf -  74.494*gf + 112.439*bf)/256.0;
     let cr = 128.0 + 112.439*rf + ( -  94.154*gf -  18.285*bf)/256.0;
     return (y as u8, cb as u8, cr as u8)
 }
 
-fn main() -> io::Result<()> {
-    const WIDTH: usize = 800;
-    const HEIGHT: usize = 600;
-    const FPS: usize = 30;
-    const DURATION: f32 = 2.0;
-    let frames_count: usize = (FPS as f32 * DURATION).floor() as usize;
+const WIDTH: usize = 800;
+const HEIGHT: usize = 600;
+const RECT_WIDTH: usize = 50;
+const RECT_HEIGHT: usize = 60;
+const FPS: usize = 30;
+const DURATION: f32 = 2.0;
+const OUTPUT_FILE_PATH: &str = "output.y4m";
+const BACKGROUND: u32 = 0x181818;
+const FOREGROUND: u32 = 0xAA9999;
 
-    let mut pixels: [u32; WIDTH*HEIGHT] = [0; WIDTH*HEIGHT];
-    let output_file_path = "output.y4m";
-    let mut sink = BufWriter::new(File::create(output_file_path)?);
+fn fill_rect_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, i32, u32, u32), color: u32) {
+    let w = canvas_stride as i32;
+    let h = canvas.len() as i32 / w;
+    let (rx, ry, rw, rh) = rect;
+
+    for dy in 0..rh {
+        for dx in 0..rw {
+            let x = rx + dx as i32;
+            let y = ry + dy as i32;
+
+            if (0..w).contains(&x) && (0..h).contains(&y) {
+                canvas[(y as usize)*canvas_stride + x as usize] = color;
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+struct Frame {
+    y_plane: Vec<u8>,
+    cb_plane: Vec<u8>,
+    cr_plane: Vec<u8>,
+}
+
+// TODO: is this correct? Are we placing the components in the right "buckets"?
+fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
+    frame.y_plane.clear();
+    frame.cb_plane.clear();
+    frame.cr_plane.clear();
+    for pixel in canvas {
+        let (y, cb, cr) = rgb_to_ycrcb(*pixel);
+        frame.y_plane.push(y);
+        frame.cb_plane.push(cb);
+        frame.cr_plane.push(cr);
+    }
+}
+
+// TODO: is this correct? are we saving the planes in the correct order?
+fn save_frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
+    writeln!(sink, "FRAME")?;
+    sink.write(&frame.y_plane)?;
+    sink.write(&frame.cr_plane)?;
+    sink.write(&frame.cb_plane)?;
+    Ok(())
+}
+
+fn main() -> io::Result<()> {
+    let frames_count: usize = (FPS as f32 * DURATION).floor() as usize;
+    let mut canvas: [u32; WIDTH*HEIGHT] = [0; WIDTH*HEIGHT];
+    let mut sink = BufWriter::new(File::create(OUTPUT_FILE_PATH)?);
+    let mut rect_x: i32 = 0;
+    let mut rect_y: i32 = 0;
+
     writeln!(&mut sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", WIDTH, HEIGHT, FPS)?;
 
-    let (red_y, red_cb, red_cr) = rgb_to_ycrcb((0, 0, 255));
-    for frame in 0..frames_count {
-        writeln!(&mut sink, "FRAME")?;
-        for _ in 0..WIDTH*HEIGHT {
-            sink.write(&[red_y]);
-        }
-        for _ in 0..WIDTH*HEIGHT {
-            sink.write(&[red_cr]);
-        }
-        for _ in 0..WIDTH*HEIGHT {
-            sink.write(&[red_cb]);
-        }
+    let mut frame = Frame::default();
+    fill_rect_rba(&mut canvas, WIDTH, (0, 0, WIDTH as u32, HEIGHT as u32), BACKGROUND);
+    for frame_index in 0..frames_count {
+        fill_rect_rba(&mut canvas, WIDTH, (rect_x, rect_y, RECT_WIDTH as u32, RECT_HEIGHT as u32), FOREGROUND);
+        canvas_as_frame(&canvas, &mut frame);
+        save_frame(&mut sink, &frame)?;
+        fill_rect_rba(&mut canvas, WIDTH, (rect_x, rect_y, RECT_WIDTH as u32, RECT_HEIGHT as u32), BACKGROUND);
 
-        let progress = (frame as f32 / frames_count as f32 * 100.0).round() as usize;
+        rect_x += 1;
+        rect_y += 1;
+
+        let progress = (frame_index as f32 / frames_count as f32 * 100.0).round() as usize;
         print!("Progress {}%\r", progress);
         io::stdout().flush()?;
     }
 
-    println!("Generated {}", output_file_path);
+    println!("Generated {}", OUTPUT_FILE_PATH);
     Ok(())
 }
