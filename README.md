@@ -9,7 +9,9 @@ Simple playground project to explore the [YUV4MPEG2](https://wiki.multimedia.cx/
 Install the [Rust Compiler](https://www.rust-lang.org/)
 
 ```console
-$ rustc main.rs
+$ rustc -C opt-level=3 main.rs
 $ ./main
 $ mplayer output.y4m
 ```
+
+**WARNING! output.y4m is 1.3G**
