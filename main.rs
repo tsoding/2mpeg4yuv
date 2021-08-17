@@ -14,7 +14,7 @@ fn rgb_to_ycrcb(pixel: u32) -> YCbCr {
     let bf = ((pixel >> (8*0)) & 0xFF) as f32;
     let y  = (16.0  +  65.738*rf/256.0 + 129.057*gf/256.0 +  25.064*bf/256.0) as u8;
     let cb = (128.0 -  37.945*rf/256.0 -  74.494*gf/256.0 + 112.439*bf/256.0) as u8;
-    let cr = (128.0 + 112.439*rf       -  94.154*gf/256.0 -  18.285*bf/256.0) as u8;
+    let cr = (128.0 + 112.439*rf/256.0 -  94.154*gf/256.0 -  18.285*bf/256.0) as u8;
     YCbCr {y, cb, cr}
 }
 
@@ -26,7 +26,7 @@ const FPS: usize = 30;
 const DURATION: f32 = 2.0;
 const OUTPUT_FILE_PATH: &str = "output.y4m";
 const BACKGROUND: u32 = 0x181818;
-const FOREGROUND: u32 = 0xAA9999;
+const FOREGROUND: u32 = 0xAA2222;
 
 fn fill_rect_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, i32, u32, u32), color: u32) {
     let w = canvas_stride as i32;
@@ -68,8 +68,8 @@ fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
 fn save_frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
     writeln!(sink, "FRAME")?;
     sink.write(&frame.y_plane)?;
-    sink.write(&frame.cr_plane)?;
     sink.write(&frame.cb_plane)?;
+    sink.write(&frame.cr_plane)?;
     Ok(())
 }
 
