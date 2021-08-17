@@ -1,6 +1,8 @@
 # 2mpeg4yuv
 
-Simple playground project to explore the [YUV4MPEG2](https://wiki.multimedia.cx/index.php?title=YUV4MPEG2).
+![thumbnail](./thumbnail.png)
+
+Simple playground project to explore the [YUV4MPEG2](https://wiki.multimedia.cx/index.php?title=YUV4MPEG2) format.
 
 ## Quick Start
 
