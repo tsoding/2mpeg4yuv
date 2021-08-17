@@ -69,7 +69,7 @@ fn main() -> io::Result<()> {
     const WIDTH: usize = 800;
     const HEIGHT: usize = 600;
     const FPS: usize = 30;
-    const DURATION: f32 = 1.0;
+    const DURATION: f32 = 2.0;
     let frames_count: usize = (FPS as f32 * DURATION).floor() as usize;
 
     let mut pixels: [u32; WIDTH*HEIGHT] = [0; WIDTH*HEIGHT];
@@ -89,6 +89,10 @@ fn main() -> io::Result<()> {
         for _ in 0..WIDTH*HEIGHT {
             sink.write(&[red_cb]);
         }
+
+        let progress = (frame as f32 / frames_count as f32 * 100.0).round() as usize;
+        print!("Progress {}%\r", progress);
+        io::stdout().flush()?;
     }
 
     println!("Generated {}", output_file_path);
