@@ -102,7 +102,6 @@ fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
     }
 }
 
-// TODO: is this correct? are we saving the planes in the correct order?
 fn save_frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
     writeln!(sink, "FRAME")?;
     sink.write(&frame.y_plane)?;
