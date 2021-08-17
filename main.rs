@@ -200,7 +200,7 @@ impl Rect {
 
 fn main() -> io::Result<()> {
     let frames_count: usize = (FPS as f32 * VIDEO_DURATION).floor() as usize;
-    let mut canvas: [u32; WIDTH*HEIGHT] = [0; WIDTH*HEIGHT];
+    let mut canvas = vec![0; WIDTH*HEIGHT];
     let mut sink = BufWriter::new(File::create(OUTPUT_FILE_PATH)?);
     let mut rects = Vec::<Rect>::new();
     let mut to_split = Vec::<(usize, Orient)>::new();
