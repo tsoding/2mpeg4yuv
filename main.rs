@@ -2,15 +2,20 @@ use std::fs::File;
 use std::io;
 use std::io::{Write, BufWriter};
 
-// TODO: is this correct?
-fn rgb_to_ycrcb(pixel: u32) -> (u8, u8, u8) {
+struct YCbCr {
+    y: u8,
+    cb: u8,
+    cr: u8,
+}
+
+fn rgb_to_ycrcb(pixel: u32) -> YCbCr {
     let rf = ((pixel >> (8*2)) & 0xFF) as f32;
     let gf = ((pixel >> (8*1)) & 0xFF) as f32;
     let bf = ((pixel >> (8*0)) & 0xFF) as f32;
-    let y  = 16.0  + (  65.738*rf + 129.057*gf +  25.064*bf)/256.0;
-    let cb = 128.0 + (- 37.945*rf -  74.494*gf + 112.439*bf)/256.0;
-    let cr = 128.0 + 112.439*rf + ( -  94.154*gf -  18.285*bf)/256.0;
-    return (y as u8, cb as u8, cr as u8)
+    let y  = (16.0  +  65.738*rf/256.0 + 129.057*gf/256.0 +  25.064*bf/256.0) as u8;
+    let cb = (128.0 -  37.945*rf/256.0 -  74.494*gf/256.0 + 112.439*bf/256.0) as u8;
+    let cr = (128.0 + 112.439*rf       -  94.154*gf/256.0 -  18.285*bf/256.0) as u8;
+    YCbCr {y, cb, cr}
 }
 
 const WIDTH: usize = 800;
@@ -53,7 +58,7 @@ fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
     frame.cb_plane.clear();
     frame.cr_plane.clear();
     for pixel in canvas {
-        let (y, cb, cr) = rgb_to_ycrcb(*pixel);
+        let YCbCr{y, cb, cr} = rgb_to_ycrcb(*pixel);
         frame.y_plane.push(y);
         frame.cb_plane.push(cb);
         frame.cr_plane.push(cr);
