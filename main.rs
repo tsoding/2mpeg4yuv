@@ -30,7 +30,6 @@ const DELTA_TIME: f32 = 1.0 / FPS as f32;
 const VIDEO_DURATION: f32 = 16.0;
 const OUTPUT_FILE_PATH: &str = "output.y4m";
 const BACKGROUND: u32 = 0x181818;
-const FOREGROUND: u32 = 0x686868;
 const SPLIT_REDUCE_FACTOR: f32 = 0.90;
 
 fn hsl2rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
