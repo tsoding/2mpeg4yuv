@@ -43,7 +43,7 @@ fn hsl2rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
     (r, g, b)
 }
 
-fn fill_gay_rect_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, i32, u32, u32)) {
+fn fill_gay_rectangle_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, i32, u32, u32)) {
     let w = canvas_stride as i32;
     let h = canvas.len() as i32 / w;
     let (rx, ry, rw, rh) = rect;
@@ -215,7 +215,7 @@ fn main() -> io::Result<()> {
     fill_rect_rba(&mut canvas, WIDTH, (0, 0, WIDTH as u32, HEIGHT as u32), BACKGROUND);
     for frame_index in 0..frames_count {
         for rect in rects.iter() {
-            fill_gay_rect_rba(&mut canvas, WIDTH, rect.hitbox());
+            fill_gay_rectangle_rba(&mut canvas, WIDTH, rect.hitbox());
         }
         canvas_as_frame(&canvas, &mut frame);
         save_frame(&mut sink, &frame)?;
