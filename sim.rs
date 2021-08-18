@@ -4,6 +4,9 @@ const RECT_WIDTH: usize = 50 * 2;
 const RECT_HEIGHT: usize = 50 * 2;
 const RECTS_CAP: usize = 100;
 const RECT_AREA_THRESHOLD: f32 = 10.0;
+const BEEP_DURATION: f32 = 0.2;
+const BEEP_FREQ: f32 = 440.0;
+const BEEP_VOLUME: f32 = 0.1;
 
 fn hsl2rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
     let mut r = (((0.0 + h*6.0).rem_euclid(6.0) - 3.0).abs() - 1.0).clamp(0.0, 1.0);
@@ -61,6 +64,15 @@ impl Rect {
 
     fn area(&self) -> f32 {
         self.w * self.h
+    }
+
+    fn bounce(mut self, orient: Orient) -> Rect {
+        use self::Orient::*;
+        match orient {
+            Vert => self.dy *= -1.0,
+            Horz => self.dx *= -1.0,
+        }
+        self
     }
 
     fn split(self, orient: Orient) -> (Rect, Rect) {
@@ -131,6 +143,9 @@ pub struct State {
     to_split: Vec<(usize, Orient)>,
     width: f32,
     height: f32,
+    global_time: f32,
+    a: f32,
+    beep_freq: f32,
 }
 
 impl State {
@@ -145,7 +160,10 @@ impl State {
             rects,
             to_split: Vec::new(),
             width,
-            height
+            height,
+            global_time: 0.0,
+            a: 0.0,
+            beep_freq: BEEP_FREQ,
         }
     }
 
@@ -155,7 +173,7 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, delta_time: f32) {
+    pub fn update(&mut self, delta_time: f32, sound: &mut [f32], sound_sample_rate: usize) {
         for (index, rect) in self.rects.iter_mut().enumerate() {
             if let Some(orient) = rect.update(delta_time, self.width, self.height) {
                 self.to_split.push((index, orient));
@@ -164,15 +182,41 @@ impl State {
 
         for (index, orient) in self.to_split.iter().rev() {
             let rect = self.rects.remove(*index);
-            let (left, right) = rect.split(*orient);
 
-            if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
-                self.rects.push(left);
-            }
-            if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
-                self.rects.push(right);
-            }
+            self.rects.push(rect.bounce(*orient));
+            self.a = BEEP_DURATION;
+            self.beep_freq += 20.0;
+
+            // let (left, right) = rect.split(*orient);
+
+            // if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
+            //     self.rects.push(left);
+            // }
+            // if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
+            //     self.rects.push(right);
+            // }
         }
         self.to_split.clear();
+
+        if self.a > 0.0 {
+
+            let sample_count = (self.a.min(delta_time) * sound_sample_rate as f32).floor() as usize;
+            let sample_step = 1.0 / sound_sample_rate as f32;
+            for i in 0..sample_count {
+                let t = self.global_time + i as f32 * sample_step;
+                let p = (self.a - i as f32 * sample_step) / BEEP_DURATION;
+                let x = if p >= 0.95 {
+                    1.0 - (p - 0.95)/0.05
+                } else if p <= 0.05 {
+                    p/0.05
+                } else {
+                    1.0
+                };
+                sound[i] = (2.0 * std::f32::consts::PI * self.beep_freq * t).sin() * BEEP_VOLUME * x;
+            }
+            self.a -= delta_time;
+        }
+
+        self.global_time += delta_time;
     }
 }

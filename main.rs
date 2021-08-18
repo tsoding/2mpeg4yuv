@@ -26,8 +26,10 @@ const HEIGHT: usize = 600;
 const FPS: usize = 60;
 const DELTA_TIME: f32 = 1.0 / FPS as f32;
 const VIDEO_DURATION: f32 = 16.0;
-const OUTPUT_FILE_PATH: &str = "output.y4m";
+const VIDEO_OUTPUT_PATH: &str = "output.y4m";
+const AUDIO_OUTPUT_PATH: &str = "output.pcm";
 const BACKGROUND: u32 = 0x181818;
+const SOUND_SAMPLE_RATE: usize = 48000;
 
 #[derive(Default)]
 struct Frame {
@@ -59,25 +61,32 @@ fn save_frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
 fn main() -> io::Result<()> {
     let frames_count: usize = (FPS as f32 * VIDEO_DURATION).floor() as usize;
     let mut canvas = vec![0; WIDTH*HEIGHT];
-    let mut sink = BufWriter::new(File::create(OUTPUT_FILE_PATH)?);
+    let mut sound = vec![0.0; (DELTA_TIME * SOUND_SAMPLE_RATE as f32).floor() as usize];
+    let mut video_sink = BufWriter::new(File::create(VIDEO_OUTPUT_PATH)?);
+    let mut audio_sink = BufWriter::new(File::create(AUDIO_OUTPUT_PATH)?);
     let mut state = State::new(WIDTH as f32, HEIGHT as f32);
 
-    writeln!(&mut sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", WIDTH, HEIGHT, FPS)?;
+    writeln!(&mut video_sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", WIDTH, HEIGHT, FPS)?;
 
     let mut frame = Frame::default();
     for frame_index in 0..frames_count {
         canvas.fill(BACKGROUND);
         state.render(&mut canvas, WIDTH);
         canvas_as_frame(&canvas, &mut frame);
-        save_frame(&mut sink, &frame)?;
+        save_frame(&mut video_sink, &frame)?;
 
-        state.update(DELTA_TIME);
+        sound.fill(0.0);
+        state.update(DELTA_TIME, &mut sound, SOUND_SAMPLE_RATE);
+        for sample in sound.iter() {
+            audio_sink.write(&sample.to_le_bytes());
+        }
 
         let progress = (frame_index as f32 / frames_count as f32 * 100.0).round() as usize;
         print!("Progress {}%\r", progress);
         io::stdout().flush()?;
     }
 
-    println!("Generated {}", OUTPUT_FILE_PATH);
+    println!("Generated {}", VIDEO_OUTPUT_PATH);
+    println!("Generated {}", AUDIO_OUTPUT_PATH);
     Ok(())
 }
