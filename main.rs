@@ -66,7 +66,7 @@ fn fill_gay_rectangle_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, 
     }
 }
 
-fn fill_rect_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, i32, u32, u32), color: u32) {
+fn fill_rectangle_rba(canvas: &mut [u32], canvas_stride: usize, rect: (i32, i32, u32, u32), color: u32) {
     let w = canvas_stride as i32;
     let h = canvas.len() as i32 / w;
     let (rx, ry, rw, rh) = rect;
@@ -197,50 +197,70 @@ impl Rect {
     }
 }
 
+struct State {
+    rects: Vec<Rect>,
+    to_split: Vec<(usize, Orient)>,
+}
+
+impl State {
+    fn new() -> Self {
+        let mut rects = Vec::new();
+        rects.push(Rect {
+            x: 30.0, y: 100.0,
+            dx: 0.7, dy: 0.8,
+            w: RECT_WIDTH as f32, h: RECT_HEIGHT as f32
+        });
+        Self {
+            rects,
+            to_split: Vec::new(),
+        }
+    }
+
+    fn render(&self, canvas: &mut [u32], canvas_stride: usize) {
+        for rect in self.rects.iter() {
+            fill_gay_rectangle_rba(canvas, canvas_stride, rect.hitbox());
+        }
+    }
+
+    fn update(&mut self) {
+        for (index, rect) in self.rects.iter_mut().enumerate() {
+            if let Some(orient) = rect.update() {
+                self.to_split.push((index, orient));
+            }
+        }
+
+        for (index, orient) in self.to_split.iter().rev() {
+            let rect = self.rects.remove(*index);
+            let (left, right) = rect.split(*orient);
+
+            if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
+                self.rects.push(left);
+            }
+            if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
+                self.rects.push(right);
+            }
+        }
+        self.to_split.clear();
+    }
+}
+
 fn main() -> io::Result<()> {
     let frames_count: usize = (FPS as f32 * VIDEO_DURATION).floor() as usize;
     let mut canvas = vec![0; WIDTH*HEIGHT];
     let mut sink = BufWriter::new(File::create(OUTPUT_FILE_PATH)?);
-    let mut rects = Vec::<Rect>::new();
-    let mut to_split = Vec::<(usize, Orient)>::new();
-    rects.push(Rect {
-        x: 30.0, y: 100.0,
-        dx: 0.7, dy: 0.8,
-        w: RECT_WIDTH as f32, h: RECT_HEIGHT as f32
-    });
+    let mut state = State::new();
 
     writeln!(&mut sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", WIDTH, HEIGHT, FPS)?;
 
     let mut frame = Frame::default();
-    fill_rect_rba(&mut canvas, WIDTH, (0, 0, WIDTH as u32, HEIGHT as u32), BACKGROUND);
+    fill_rectangle_rba(&mut canvas, WIDTH, (0, 0, WIDTH as u32, HEIGHT as u32), BACKGROUND);
     for frame_index in 0..frames_count {
-        for rect in rects.iter() {
-            fill_gay_rectangle_rba(&mut canvas, WIDTH, rect.hitbox());
-        }
+        canvas.fill(BACKGROUND);
+        state.render(&mut canvas, WIDTH);
         canvas_as_frame(&canvas, &mut frame);
         save_frame(&mut sink, &frame)?;
-        for rect in rects.iter() {
-            fill_rect_rba(&mut canvas, WIDTH, rect.hitbox(), BACKGROUND);
-        }
 
-        for (index, rect) in rects.iter_mut().enumerate() {
-            if let Some(orient) = rect.update() {
-                to_split.push((index, orient));
-            }
-        }
-
-        for (index, orient) in to_split.iter().rev() {
-            let rect = rects.remove(*index);
-            let (left, right) = rect.split(*orient);
-
-            if rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
-                rects.push(left);
-            }
-            if rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
-                rects.push(right);
-            }
-        }
-        to_split.clear();
+        state.update();
 
         let progress = (frame_index as f32 / frames_count as f32 * 100.0).round() as usize;
         print!("Progress {}%\r", progress);
