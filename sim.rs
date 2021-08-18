@@ -187,6 +187,9 @@ impl State {
             self.a = BEEP_DURATION;
             self.beep_freq += 20.0;
 
+            // TODO: implement sound for the "complex" version of the animation
+            // ---
+
             // let (left, right) = rect.split(*orient);
 
             // if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
@@ -199,6 +202,10 @@ impl State {
         self.to_split.clear();
 
         if self.a > 0.0 {
+            // TODO: there are still clicks when the beeps are overlapping
+            // Probably because of the way we handle fade in/out.
+            // A proper way would be probably playing the beeps in a concurrent fashion
+            // and mixing them in the final sound.
 
             let sample_count = (self.a.min(delta_time) * sound_sample_rate as f32).floor() as usize;
             let sample_step = 1.0 / sound_sample_rate as f32;
