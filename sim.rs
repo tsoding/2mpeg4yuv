@@ -201,6 +201,8 @@ impl State {
         }
         self.to_split.clear();
 
+        // TODO: stereo sound depending on the location of the collision
+
         if self.a > 0.0 {
             // TODO: there are still clicks when the beeps are overlapping
             // Probably because of the way we handle fade in/out.
