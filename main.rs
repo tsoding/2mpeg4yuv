@@ -25,7 +25,7 @@ const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
 const FPS: usize = 60;
 const DELTA_TIME: f32 = 1.0 / FPS as f32;
-const VIDEO_DURATION: f32 = 16.0;
+const VIDEO_DURATION: f32 = 6.0;
 const VIDEO_OUTPUT_PATH: &str = "output.y4m";
 const AUDIO_OUTPUT_PATH: &str = "output.pcm";
 const BACKGROUND: u32 = 0x181818;
@@ -76,10 +76,12 @@ fn main() -> io::Result<()> {
         save_frame(&mut video_sink, &frame)?;
 
         sound.fill(0.0);
-        state.update(DELTA_TIME, &mut sound, SOUND_SAMPLE_RATE);
+        state.sound(&mut sound, SOUND_SAMPLE_RATE);
         for sample in sound.iter() {
             audio_sink.write(&sample.to_le_bytes());
         }
+
+        state.update(DELTA_TIME);
 
         let progress = (frame_index as f32 / frames_count as f32 * 100.0).round() as usize;
         print!("Progress {}%\r", progress);
