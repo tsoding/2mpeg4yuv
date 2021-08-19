@@ -1,12 +1,13 @@
 const SPLIT_REDUCE_FACTOR: f32 = 0.90;
 const RECT_VEL: f32 = 1000.0;
-const RECT_WIDTH: usize = 50 * 2;
-const RECT_HEIGHT: usize = 50 * 2;
+const RECT_WIDTH: usize = 100;
+const RECT_HEIGHT: usize = 100;
 const RECTS_CAP: usize = 100;
-const RECT_AREA_THRESHOLD: f32 = 10.0;
+const RECT_AREA_THRESHOLD: f32 = 1853.0;
+    // RECT_WIDTH as f32 * RECT_HEIGHT as f32 * (SPLIT_REDUCE_FACTOR.powf(10.0 * 2.0));
 const BEEP_DURATION: f32 = 0.2;
 const BEEP_FREQ: f32 = 440.0;
-const BEEP_VOLUME: f32 = 0.1;
+const BEEP_VOLUME: f32 = 0.05;
 
 fn hsl2rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
     let mut r = (((0.0 + h*6.0).rem_euclid(6.0) - 3.0).abs() - 1.0).clamp(0.0, 1.0);
@@ -49,6 +50,7 @@ struct Rect {
     dy: f32,
     w: f32,
     h: f32,
+    note: i32,
 }
 
 #[derive(Copy, Clone)]
@@ -86,6 +88,7 @@ impl Rect {
                     dy: -self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
+                    note: self.note + 3,
                 };
                 let right =  Rect {
                     x: self.x,
@@ -94,6 +97,7 @@ impl Rect {
                     dy: -self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
+                    note: self.note + 3,
                 };
                 (left, right)
             },
@@ -105,6 +109,7 @@ impl Rect {
                     dy: self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
+                    note: self.note + 3,
                 };
                 let right =  Rect {
                     x: self.x,
@@ -113,6 +118,7 @@ impl Rect {
                     dy: -self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
+                    note: self.note + 3,
                 };
                 (left, right)
             },
@@ -175,9 +181,9 @@ impl Beeper {
                     beep.duration -= sample_step;
                 }
             }
+
             self.time += sample_step;
         }
-
         self.beeps.retain(|beep| beep.duration > 0.0);
     }
 }
@@ -188,7 +194,6 @@ pub struct State {
     width: f32,
     height: f32,
     beeper: Beeper,
-    beep_note: i32,
 }
 
 fn freq_of_note(note: i32) -> f32 {
@@ -201,14 +206,14 @@ impl State {
         rects.push(Rect {
             x: 30.0, y: 100.0,
             dx: 0.7, dy: 0.8,
-            w: RECT_WIDTH as f32, h: RECT_HEIGHT as f32
+            w: RECT_WIDTH as f32, h: RECT_HEIGHT as f32,
+            note: -24,
         });
         Self {
             rects,
             to_split: Vec::new(),
             width,
             height,
-            beep_note: -24,
             beeper: Beeper::default()
         }
     }
@@ -233,21 +238,16 @@ impl State {
         for (index, orient) in self.to_split.iter().rev() {
             let rect = self.rects.remove(*index);
 
-            self.rects.push(rect.bounce(*orient));
-            self.beeper.beep(freq_of_note(self.beep_note), BEEP_DURATION);
-            self.beep_note += 5;
+            self.beeper.beep(freq_of_note(rect.note), BEEP_DURATION);
 
-            // TODO: implement sound for the "complex" version of the animation
-            // ---
+            let (left, right) = rect.split(*orient);
 
-            // let (left, right) = rect.split(*orient);
-
-            // if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
-            //     self.rects.push(left);
-            // }
-            // if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
-            //     self.rects.push(right);
-            // }
+            if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
+                self.rects.push(left);
+            }
+            if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
+                self.rects.push(right);
+            }
         }
         self.to_split.clear();
 
