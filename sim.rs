@@ -3,6 +3,7 @@ const RECT_VEL: f32 = 1000.0;
 const RECT_WIDTH: usize = 100;
 const RECT_HEIGHT: usize = 100;
 const RECTS_CAP: usize = 100;
+const RECT_NOTE_STEP: i32 = 3;
 const RECT_AREA_THRESHOLD: f32 = 1853.0;
     // RECT_WIDTH as f32 * RECT_HEIGHT as f32 * (SPLIT_REDUCE_FACTOR.powf(10.0 * 2.0));
 const BEEP_DURATION: f32 = 0.2;
@@ -88,7 +89,7 @@ impl Rect {
                     dy: -self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
-                    note: self.note + 3,
+                    note: self.note + RECT_NOTE_STEP,
                 };
                 let right =  Rect {
                     x: self.x,
@@ -97,7 +98,7 @@ impl Rect {
                     dy: -self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
-                    note: self.note + 3,
+                    note: self.note + RECT_NOTE_STEP,
                 };
                 (left, right)
             },
@@ -109,7 +110,7 @@ impl Rect {
                     dy: self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
-                    note: self.note + 3,
+                    note: self.note + RECT_NOTE_STEP,
                 };
                 let right =  Rect {
                     x: self.x,
@@ -118,7 +119,7 @@ impl Rect {
                     dy: -self.dy,
                     w: self.w * SPLIT_REDUCE_FACTOR,
                     h: self.h * SPLIT_REDUCE_FACTOR,
-                    note: self.note + 3,
+                    note: self.note + RECT_NOTE_STEP,
                 };
                 (left, right)
             },
