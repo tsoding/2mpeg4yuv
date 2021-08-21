@@ -7,7 +7,6 @@ const RECT_NOTE_STEP: i32 = 3;
 const RECT_AREA_THRESHOLD: f32 = 1853.0;
     // RECT_WIDTH as f32 * RECT_HEIGHT as f32 * (SPLIT_REDUCE_FACTOR.powf(10.0 * 2.0));
 const BEEP_DURATION: f32 = 0.2;
-const BEEP_FREQ: f32 = 440.0;
 const BEEP_VOLUME: f32 = 0.05;
 
 fn hsl2rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
@@ -67,15 +66,6 @@ impl Rect {
 
     fn area(&self) -> f32 {
         self.w * self.h
-    }
-
-    fn bounce(mut self, orient: Orient) -> Rect {
-        use self::Orient::*;
-        match orient {
-            Vert => self.dy *= -1.0,
-            Horz => self.dx *= -1.0,
-        }
-        self
     }
 
     fn split(self, orient: Orient) -> (Rect, Rect) {

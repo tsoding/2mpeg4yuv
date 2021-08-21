@@ -125,7 +125,7 @@ unsafe fn link_shaders_into_program(shaders: &[GLuint]) -> GLuint {
     program
 }
 
-fn main() {
+pub fn main() {
     unsafe {
         glfwSetErrorCallback(glfw_error_callback);
 

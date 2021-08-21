@@ -1,5 +1,3 @@
-mod sim;
-
 use std::fs::File;
 use std::io;
 use std::io::{Write, BufWriter};
@@ -58,7 +56,7 @@ fn save_frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
     Ok(())
 }
 
-fn main() -> io::Result<()> {
+pub fn main() -> io::Result<()> {
     let frames_count: usize = (FPS as f32 * VIDEO_DURATION).floor() as usize;
     let mut canvas = vec![0; WIDTH*HEIGHT];
     let mut sound = vec![0.0; (DELTA_TIME * SOUND_SAMPLE_RATE as f32).floor() as usize];
@@ -78,7 +76,7 @@ fn main() -> io::Result<()> {
         sound.fill(0.0);
         state.sound(&mut sound, SOUND_SAMPLE_RATE);
         for sample in sound.iter() {
-            audio_sink.write(&sample.to_le_bytes());
+            audio_sink.write(&sample.to_le_bytes())?;
         }
 
         state.update(DELTA_TIME);

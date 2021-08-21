@@ -9,7 +9,8 @@ Simple playground project to explore the [YUV4MPEG2](https://wiki.multimedia.cx/
 Install the [Rust Compiler](https://www.rust-lang.org/)
 
 ```console
-$ ./run.sh
+$ ./render.sh
+$ mplayer output.mp4
 ```
 
 **WARNING! The program produces big files over 1GB**
