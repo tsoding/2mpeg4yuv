@@ -68,6 +68,37 @@ impl Rect {
         self.w * self.h
     }
 
+    #[allow(dead_code)]
+    fn bounce(self, orient: Orient) -> Rect {
+        use self::Orient::*;
+        match orient {
+            Vert => {
+                let left = Rect {
+                    x: self.x,
+                    y: self.y,
+                    dx: self.dx,
+                    dy: -self.dy,
+                    w: self.w,
+                    h: self.h,
+                    note: self.note,
+                };
+                left
+            },
+            Horz => {
+                let left = Rect {
+                    x: self.x,
+                    y: self.y,
+                    dx: -self.dx,
+                    dy: self.dy,
+                    w: self.w,
+                    h: self.h,
+                    note: self.note,
+                };
+                left
+            },
+        }
+    }
+
     fn split(self, orient: Orient) -> (Rect, Rect) {
         use self::Orient::*;
         match orient {
@@ -219,6 +250,12 @@ impl State {
         self.beeper.update(sample, sample_rate);
     }
 
+    fn push_rect(&mut self, rect: Rect) {
+        if self.rects.len() < RECTS_CAP && rect.area() >= RECT_AREA_THRESHOLD {
+            self.rects.push(rect);
+        }
+    }
+
     pub fn update(&mut self, delta_time: f32) {
         for (index, rect) in self.rects.iter_mut().enumerate() {
             if let Some(orient) = rect.update(delta_time, self.width, self.height) {
@@ -229,16 +266,17 @@ impl State {
         for (index, orient) in self.to_split.iter().rev() {
             let rect = self.rects.remove(*index);
 
-            self.beeper.beep(freq_of_note(rect.note), BEEP_DURATION);
+            self.beeper.beep(freq_of_note(/*rect.note*/0), BEEP_DURATION);
+            self.rects.push(rect.bounce(*orient));
 
-            let (left, right) = rect.split(*orient);
 
-            if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
-                self.rects.push(left);
-            }
-            if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
-                self.rects.push(right);
-            }
+            // let (left, right) = rect.split(*orient);
+            // if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
+            //     self.rects.push(left);
+            // }
+            // if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
+            //     self.rects.push(right);
+            // }
         }
         self.to_split.clear();
 
