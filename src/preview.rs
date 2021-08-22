@@ -1,5 +1,9 @@
 #![allow(non_camel_case_types)]
 
+// TODO: try to port this module to windows
+// At least see what needs to be done to make this work on windows
+// and create corresponding TODOs
+
 use std::ffi::{c_void, CString, CStr};
 use std::ptr::{null, null_mut};
 use std::os::raw::{c_char, c_int, c_float, c_uint, c_double};
@@ -13,6 +17,11 @@ type GLFWkeyfun = extern fn (window: *mut GLFWwindow, key: c_int, scancode: c_in
 
 extern fn glfw_error_callback(code: c_int, description: *const c_char) {
     unsafe {
+        // TODO: it is important that the program compiled with -C panic=abort
+        //
+        // Because if we are unwinding from within the C runtime, something bad may happen.
+        // Is it possible to predicate on the kind of panic at compile time? Something like
+        // "if panic is not abort fail the compilation in here"?
         panic!("GLFW ERROR {}: {}", code, CStr::from_ptr(description).to_str().unwrap());
     }
 }
