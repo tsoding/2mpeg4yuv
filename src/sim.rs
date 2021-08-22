@@ -193,6 +193,8 @@ impl Beeper {
     fn update(&mut self, samples: &mut [f32], sample_rate: usize) {
         use std::f32::consts::PI;
 
+        // TODO: sound mixing is an absolute garbage
+        // I really hope to fix it one day. Not on the stream of course.
         let sample_step = 1.0 / sample_rate as f32;
         for sample in samples.iter_mut() {
             *sample = 0.0;
