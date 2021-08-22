@@ -1,5 +1,5 @@
 use std::ffi::{c_void, CString, CStr};
-use std::ptr::null_mut;
+use std::ptr::{null, null_mut};
 use std::os::raw::{c_char, c_int, c_float, c_uint, c_double};
 use std::str;
 
@@ -125,8 +125,101 @@ unsafe fn link_shaders_into_program(shaders: &[GLuint]) -> GLuint {
     program
 }
 
+#[repr(C)]
+#[allow(non_camel_case_types)]
+enum pa_stream_direction {
+    PA_STREAM_NODIRECTION,
+    PA_STREAM_PLAYBACK,
+    PA_STREAM_RECORD,
+    PA_STREAM_UPLOAD
+}
+
+#[repr(C)]
+#[allow(non_camel_case_types)]
+enum pa_sample_format {
+    PA_SAMPLE_U8,
+    PA_SAMPLE_ALAW,
+    PA_SAMPLE_ULAW,
+    PA_SAMPLE_S16LE,
+    PA_SAMPLE_S16BE,
+    PA_SAMPLE_FLOAT32LE,
+    PA_SAMPLE_FLOAT32BE,
+    PA_SAMPLE_S32LE,
+    PA_SAMPLE_S32BE,
+    PA_SAMPLE_S24LE,
+    PA_SAMPLE_S24BE,
+    PA_SAMPLE_S24_32LE,
+    PA_SAMPLE_S24_32BE,
+    PA_SAMPLE_MAX,
+    PA_SAMPLE_INVALID = -1,
+}
+
+#[repr(C)]
+struct pa_sample_spec {
+    format: pa_sample_format,
+    rate: u32,
+    channels: u8,
+}
+
+type pa_simple = *mut c_void;
+type pa_channel_map = *mut c_void;
+type pa_buffer_attr = *mut c_void;
+
+#[link(name = "pulse-simple")]
+#[link(name = "pulse")]
+extern {
+    fn pa_simple_new(server: *const c_char, name: *const c_char,
+                     dir: pa_stream_direction,
+                     dev: *const c_char,
+                     stream_name: *const c_char,
+                     ss: *const pa_sample_spec,
+                     map: *const pa_channel_map,
+                     attr: *const pa_buffer_attr,
+                     error: *mut c_int) -> *mut pa_simple;
+    fn pa_simple_write(s: *mut pa_simple,
+                       data: *const c_void,
+                       bytes: u64,
+                       error: *mut c_int) -> c_int;
+    fn pa_strerror(error: c_int) -> *const c_char;
+}
+
 pub fn main() {
+    use std::f32::consts::PI;
+
+    const SAMPLE_RATE: usize = 48000;
+    const SOUND_FREQUENCY: f32 = 440.0;
+
     unsafe {
+        use self::pa_stream_direction::*;
+        use self::pa_sample_format::*;
+
+        let mut args = std::env::args();
+        let program = CString::new(args.next().expect("Program name")).unwrap();
+        let stream_name = CString::new("playback").unwrap();
+
+        let ss = pa_sample_spec {
+            format: PA_SAMPLE_FLOAT32LE,
+            rate: SAMPLE_RATE as u32,
+            channels: 1,
+        };
+
+        let mut error: c_int = 0;
+
+        let s = pa_simple_new(null_mut(),
+                              program.as_ptr(),
+                              PA_STREAM_PLAYBACK,
+                              null_mut(),
+                              stream_name.as_ptr(),
+                              &ss,
+                              null(),
+                              null(),
+                              &mut error);
+        if s.is_null() {
+            panic!("pa_simple_new() failed: {}", CStr::from_ptr(pa_strerror(error)).to_str().unwrap());
+        }
+
+        println!("Created the playback stream: {:?}", s);
+
         glfwSetErrorCallback(glfw_error_callback);
 
         glfwInit();
@@ -196,8 +289,19 @@ pub fn main() {
 
         glUseProgram(program);
 
+        let mut samples: [f32; 1024] = [0.0; 1024];
+        let mut time: f32 = 0.0;
+        let delta_time: f32 = 1.0 / SAMPLE_RATE as f32;
+
         while glfwWindowShouldClose(window) == 0 {
             glfwPollEvents();
+
+            for (i, sample) in samples.iter_mut().enumerate() {
+                *sample = (2.0*PI*SOUND_FREQUENCY*time).sin() * 0.10;
+                time += delta_time;
+            }
+
+            pa_simple_write(s, samples.as_ptr() as *const c_void, 4 * samples.len() as u64, &mut error);
 
             glUniform1f(time_uniform_location, glfwGetTime() as f32);
 
