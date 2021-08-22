@@ -49,6 +49,12 @@ const GL_VERTEX_SHADER: GLenum = 0x8B31;
 const GL_COMPILE_STATUS: GLenum = 0x8B81;
 const GL_LINK_STATUS: GLenum = 0x8B82;
 const GL_TRIANGLE_STRIP: GLenum = 0x0005;
+const GL_TEXTURE_2D: GLenum = 0x0DE1;
+const GL_TEXTURE_MAG_FILTER: GLenum = 0x2800;
+const GL_TEXTURE_MIN_FILTER: GLenum = 0x2801;
+const GL_NEAREST: GLint = 0x2600;
+const GL_RGBA: GLenum = 0x1908;
+const GL_UNSIGNED_BYTE: GLenum = 0x1401;
 
 type GLclampf = c_float;
 type GLbitfield = c_uint;
@@ -58,6 +64,7 @@ type GLenum = c_uint;
 type GLsizei = c_int;
 type GLchar = c_char;
 type GLfloat = c_float;
+type GLvoid = c_void;
 
 #[link(name = "GL")]
 extern {
@@ -79,10 +86,25 @@ extern {
     fn glBindVertexArray (array: GLuint);
     fn glGetUniformLocation (program: GLuint, name: *const GLchar) -> GLint;
     fn glUniform1f (location: GLint, v0: GLfloat);
+    fn glGenTextures(n: GLsizei, textures: *mut GLuint);
+    fn glBindTexture(target: GLenum, texture: GLuint);
+    fn glTexParameteri(target: GLenum, pname: GLenum, param: GLint);
+    fn glTexImage2D(target: GLenum,
+                    level: GLint,
+                    internalFormat: GLint,
+                    width: GLsizei, height: GLsizei,
+                    border: GLint, format: GLenum, typ: GLenum,
+                    pixels: *const GLvoid);
+    fn glTexSubImage2D(target: GLenum,
+ 	                   level: GLint,
+ 	                   xoffset: GLint,
+ 	                   yoffset: GLint,
+ 	                   width: GLsizei,
+ 	                   height: GLsizei,
+ 	                   format: GLenum,
+ 	                   typ: GLenum,
+ 	                   data: *const GLvoid);
 }
-
-const WIDTH: usize = 800;
-const HEIGHT: usize = 600;
 
 fn shader_type_name(shader_type: GLenum) -> &'static str {
     match shader_type {
@@ -183,11 +205,36 @@ extern {
     fn pa_strerror(error: c_int) -> *const c_char;
 }
 
+use std::fs::File;
+use std::io;
+use std::io::Write;
+
+fn save_pixels_as_ppm(file_path: &str, pixels: &[u32], stride: usize) -> io::Result<()> {
+    let mut sink = File::create(file_path)?;
+    write!(&mut sink, "P6\n{} {} 255\n", stride, pixels.len() / stride);
+    for pixel in pixels {
+        let r = ((*pixel >> 8*2) & 0xFF) as u8;
+        let g = ((*pixel >> 8*1) & 0xFF) as u8;
+        let b = ((*pixel >> 8*0) & 0xFF) as u8;
+        sink.write(&[r, g, b])?;
+    }
+    Ok(())
+}
+
+const WIDTH: usize = 800;
+const HEIGHT: usize = 600;
+const FPS: usize = 60;
+const DELTA_TIME: f32 = 1.0 / FPS as f32;
+const BACKGROUND: u32 = 0x181818;
+const SAMPLE_RATE: usize = 48000;
+
 pub fn main() {
     use std::f32::consts::PI;
+    use super::sim::*;
 
-    const SAMPLE_RATE: usize = 48000;
-    const SOUND_FREQUENCY: f32 = 440.0;
+    let mut state = State::new(WIDTH as f32, HEIGHT as f32);
+    let mut canvas = vec![0; WIDTH * HEIGHT];
+    let mut sound = vec![0.0; (DELTA_TIME * SAMPLE_RATE as f32).floor() as usize];
 
     unsafe {
         use self::pa_stream_direction::*;
@@ -238,11 +285,26 @@ pub fn main() {
         glfwSetKeyCallback(window, glfw_keyboard_callback);
 
         glfwMakeContextCurrent(window);
-        glfwSwapInterval(0);
+        glfwSwapInterval(1);
 
         let mut vao = 0;
         glGenVertexArrays(1, &mut vao);
         glBindVertexArray(vao);
+
+        let mut frame_texture: GLuint = 0;
+        glGenTextures(1, &mut frame_texture);
+        glBindTexture(GL_TEXTURE_2D, frame_texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D,
+                     0,
+                     GL_RGBA as i32,
+                     WIDTH as GLint,
+                     HEIGHT as GLint,
+                     0,
+                     GL_RGBA,
+                     GL_UNSIGNED_BYTE,
+                     canvas.as_ptr() as *const GLvoid);
 
         let vert_shader = compile_shader_from_source(
             GL_VERTEX_SHADER,
@@ -259,6 +321,7 @@ pub fn main() {
             GL_FRAGMENT_SHADER,
             r#"#version 330 core
             uniform float time;
+            uniform sampler2D frame;
             in vec2 uv;
             out vec4 color;
 
@@ -274,10 +337,10 @@ pub fn main() {
 
             void main()
             {
-                color = vec4(sin01(uv.x + time),
-                             cos01(uv.y + time),
-                             sin01(uv.x + uv.y + time),
-                             1.0);
+                // 0xAARRGGBB
+                // 0xAABBGGRR
+                vec4 pixel = texture(frame, vec2(uv.x, 1.0 - uv.y));
+                color = vec4(pixel.zyx, 1.0);
             }"#);
         println!("Created Fragment Shader {}", frag_shader);
 
@@ -296,15 +359,25 @@ pub fn main() {
         while glfwWindowShouldClose(window) == 0 {
             glfwPollEvents();
 
-            for (i, sample) in samples.iter_mut().enumerate() {
-                *sample = (2.0*PI*SOUND_FREQUENCY*time).sin() * 0.10;
-                time += delta_time;
-            }
+            canvas.fill(0x181818);
+            state.render(&mut canvas, WIDTH);
+            glTexSubImage2D(GL_TEXTURE_2D,
+ 	                        0,
+ 	                        0,
+ 	                        0,
+ 	                        WIDTH as GLsizei,
+ 	                        HEIGHT as GLsizei,
+ 	                        GL_RGBA,
+ 	                        GL_UNSIGNED_BYTE,
+ 	                        canvas.as_ptr() as *const GLvoid);
 
-            pa_simple_write(s, samples.as_ptr() as *const c_void, 4 * samples.len() as u64, &mut error);
+            sound.fill(0.0);
+            state.sound(&mut sound, SAMPLE_RATE);
+            pa_simple_write(s, sound.as_ptr() as *const c_void, 4 * sound.len() as u64, &mut error);
+
+            state.update(1.0 / 60.0);
 
             glUniform1f(time_uniform_location, glfwGetTime() as f32);
-
             glClearColor(0.0, 0.0, 0.0, 1.0);
             glClear(GL_COLOR_BUFFER_BIT);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
