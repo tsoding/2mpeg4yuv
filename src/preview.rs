@@ -1,3 +1,5 @@
+#![allow(non_camel_case_types)]
+
 use std::ffi::{c_void, CString, CStr};
 use std::ptr::{null, null_mut};
 use std::os::raw::{c_char, c_int, c_float, c_uint, c_double};
@@ -148,7 +150,7 @@ unsafe fn link_shaders_into_program(shaders: &[GLuint]) -> GLuint {
 }
 
 #[repr(C)]
-#[allow(non_camel_case_types)]
+#[allow(dead_code)]
 enum pa_stream_direction {
     PA_STREAM_NODIRECTION,
     PA_STREAM_PLAYBACK,
@@ -157,7 +159,7 @@ enum pa_stream_direction {
 }
 
 #[repr(C)]
-#[allow(non_camel_case_types)]
+#[allow(dead_code)]
 enum pa_sample_format {
     PA_SAMPLE_U8,
     PA_SAMPLE_ALAW,
@@ -205,22 +207,6 @@ extern {
     fn pa_strerror(error: c_int) -> *const c_char;
 }
 
-use std::fs::File;
-use std::io;
-use std::io::Write;
-
-fn save_pixels_as_ppm(file_path: &str, pixels: &[u32], stride: usize) -> io::Result<()> {
-    let mut sink = File::create(file_path)?;
-    write!(&mut sink, "P6\n{} {} 255\n", stride, pixels.len() / stride);
-    for pixel in pixels {
-        let r = ((*pixel >> 8*2) & 0xFF) as u8;
-        let g = ((*pixel >> 8*1) & 0xFF) as u8;
-        let b = ((*pixel >> 8*0) & 0xFF) as u8;
-        sink.write(&[r, g, b])?;
-    }
-    Ok(())
-}
-
 const WIDTH: usize = 800;
 const HEIGHT: usize = 600;
 const FPS: usize = 60;
@@ -229,7 +215,6 @@ const BACKGROUND: u32 = 0x181818;
 const SAMPLE_RATE: usize = 48000;
 
 pub fn main() {
-    use std::f32::consts::PI;
     use super::sim::*;
 
     let mut state = State::new(WIDTH as f32, HEIGHT as f32);
@@ -352,14 +337,10 @@ pub fn main() {
 
         glUseProgram(program);
 
-        let mut samples: [f32; 1024] = [0.0; 1024];
-        let mut time: f32 = 0.0;
-        let delta_time: f32 = 1.0 / SAMPLE_RATE as f32;
-
         while glfwWindowShouldClose(window) == 0 {
             glfwPollEvents();
 
-            canvas.fill(0x181818);
+            canvas.fill(BACKGROUND);
             state.render(&mut canvas, WIDTH);
             glTexSubImage2D(GL_TEXTURE_2D,
  	                        0,

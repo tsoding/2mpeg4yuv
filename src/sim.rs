@@ -171,13 +171,21 @@ struct Beep {
     duration: f32,
 }
 
-#[derive(Default)]
 struct Beeper {
     beeps: Vec<Beep>,
     time: f32,
+    g: f32,
 }
 
 impl Beeper {
+    fn new() -> Self {
+        Self {
+            beeps: Vec::new(),
+            time: 0.0,
+            g: f32::MIN,
+        }
+    }
+
     fn beep(&mut self, freq: f32, duration: f32) {
         self.beeps.push(Beep{freq, duration})
     }
@@ -186,7 +194,7 @@ impl Beeper {
         use std::f32::consts::PI;
 
         let sample_step = 1.0 / sample_rate as f32;
-        for sample in samples {
+        for sample in samples.iter_mut() {
             *sample = 0.0;
             for beep in self.beeps.iter_mut() {
                 if beep.duration > 0.0 {
@@ -204,8 +212,15 @@ impl Beeper {
                 }
             }
 
+            self.g = sample.abs().max(self.g);
+
+            if self.g > 1.0 {
+                *sample /= self.g * self.g * self.g;
+            }
+
             self.time += sample_step;
         }
+
         self.beeps.retain(|beep| beep.duration > 0.0);
     }
 }
@@ -236,7 +251,7 @@ impl State {
             to_split: Vec::new(),
             width,
             height,
-            beeper: Beeper::default()
+            beeper: Beeper::new()
         }
     }
 
@@ -250,12 +265,6 @@ impl State {
         self.beeper.update(sample, sample_rate);
     }
 
-    fn push_rect(&mut self, rect: Rect) {
-        if self.rects.len() < RECTS_CAP && rect.area() >= RECT_AREA_THRESHOLD {
-            self.rects.push(rect);
-        }
-    }
-
     pub fn update(&mut self, delta_time: f32) {
         for (index, rect) in self.rects.iter_mut().enumerate() {
             if let Some(orient) = rect.update(delta_time, self.width, self.height) {
@@ -266,17 +275,15 @@ impl State {
         for (index, orient) in self.to_split.iter().rev() {
             let rect = self.rects.remove(*index);
 
-            self.beeper.beep(freq_of_note(/*rect.note*/0), BEEP_DURATION);
-            self.rects.push(rect.bounce(*orient));
+            self.beeper.beep(freq_of_note(rect.note), BEEP_DURATION);
 
-
-            // let (left, right) = rect.split(*orient);
-            // if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
-            //     self.rects.push(left);
-            // }
-            // if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
-            //     self.rects.push(right);
-            // }
+            let (left, right) = rect.split(*orient);
+            if self.rects.len() < RECTS_CAP && left.area() >= RECT_AREA_THRESHOLD {
+                self.rects.push(left);
+            }
+            if self.rects.len() < RECTS_CAP && right.area() >= RECT_AREA_THRESHOLD {
+                self.rects.push(right);
+            }
         }
         self.to_split.clear();
 
