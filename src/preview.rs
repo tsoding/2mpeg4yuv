@@ -4,6 +4,7 @@ use std::ffi::{c_void, CString, CStr};
 use std::ptr::{null, null_mut};
 use std::os::raw::{c_char, c_int, c_float, c_uint, c_double};
 use std::str;
+use super::config::*;
 
 type GLFWwindow = c_void;
 type GLFWmonitor = c_void;
@@ -207,19 +208,14 @@ extern {
     fn pa_strerror(error: c_int) -> *const c_char;
 }
 
-const WIDTH: usize = 800;
-const HEIGHT: usize = 600;
-const FPS: usize = 60;
 const DELTA_TIME: f32 = 1.0 / FPS as f32;
-const BACKGROUND: u32 = 0x181818;
-const SAMPLE_RATE: usize = 48000;
 
 pub fn main() {
     use super::sim::*;
 
     let mut state = State::new(WIDTH as f32, HEIGHT as f32);
     let mut canvas = vec![0; WIDTH * HEIGHT];
-    let mut sound = vec![0.0; (DELTA_TIME * SAMPLE_RATE as f32).floor() as usize];
+    let mut sound = vec![0.0; (DELTA_TIME * SOUND_SAMPLE_RATE as f32).floor() as usize];
 
     unsafe {
         use self::pa_stream_direction::*;
@@ -231,7 +227,7 @@ pub fn main() {
 
         let ss = pa_sample_spec {
             format: PA_SAMPLE_FLOAT32LE,
-            rate: SAMPLE_RATE as u32,
+            rate: SOUND_SAMPLE_RATE as u32,
             channels: 1,
         };
 
@@ -353,7 +349,7 @@ pub fn main() {
  	                        canvas.as_ptr() as *const GLvoid);
 
             sound.fill(0.0);
-            state.sound(&mut sound, SAMPLE_RATE);
+            state.sound(&mut sound, SOUND_SAMPLE_RATE);
             pa_simple_write(s, sound.as_ptr() as *const c_void, 4 * sound.len() as u64, &mut error);
 
             state.update(1.0 / 60.0);

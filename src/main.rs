@@ -1,6 +1,7 @@
 mod sim;
 mod render;
 mod preview;
+mod config;
 
 use std::io;
 use std::io::Write;

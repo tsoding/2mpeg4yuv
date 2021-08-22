@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io;
 use std::io::{Write, BufWriter};
 use sim::*;
+use super::config::*;
 
 struct YCbCr {
     y: u8,
@@ -19,13 +20,7 @@ fn rgb_to_ycrcb(pixel: u32) -> YCbCr {
     YCbCr {y, cb, cr}
 }
 
-const WIDTH: usize = 800;
-const HEIGHT: usize = 600;
-const FPS: usize = 60;
 const DELTA_TIME: f32 = 1.0 / FPS as f32;
-const BACKGROUND: u32 = 0x181818;
-const SOUND_SAMPLE_RATE: usize = 48000;
-
 const VIDEO_DURATION: f32 = 6.0;
 const VIDEO_OUTPUT_PATH: &str = "output.y4m";
 const AUDIO_OUTPUT_PATH: &str = "output.pcm";
