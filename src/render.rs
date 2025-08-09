@@ -3,6 +3,8 @@ use std::io;
 use std::io::{Write, BufWriter};
 use sim::*;
 use super::config::*;
+use super::avi;
+use std::slice;
 
 struct YCbCr {
     y: u8,
@@ -26,13 +28,30 @@ const VIDEO_OUTPUT_PATH: &str = "output.y4m";
 const AUDIO_OUTPUT_PATH: &str = "output.pcm";
 
 #[derive(Default)]
-struct Frame {
+struct FrameYCbCr {
     y_plane: Vec<u8>,
     cb_plane: Vec<u8>,
     cr_plane: Vec<u8>,
 }
 
-fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
+#[derive(Default)]
+struct FrameBGR24 {
+    pixels: Vec<u8>,
+}
+
+fn canvas_as_frame_bgr24(canvas: &[u32], frame: &mut FrameBGR24) {
+    frame.pixels.clear();
+    for pixel in canvas {
+        let r = ((pixel >> (8*2)) & 0xFF) as u8;
+        let b = ((pixel >> (8*0)) & 0xFF) as u8;
+        let g = ((pixel >> (8*1)) & 0xFF) as u8;
+        frame.pixels.push(b);
+        frame.pixels.push(g);
+        frame.pixels.push(r);
+    }
+}
+
+fn canvas_as_frame_ycbcr(canvas: &[u32], frame: &mut FrameYCbCr) {
     frame.y_plane.clear();
     frame.cb_plane.clear();
     frame.cr_plane.clear();
@@ -44,7 +63,23 @@ fn canvas_as_frame(canvas: &[u32], frame: &mut Frame) {
     }
 }
 
-fn save_frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
+fn save_video_frame_avi(sink: &mut impl Write, frame: &FrameBGR24) -> io::Result<()> {
+    avi::write_chunk(sink, &avi::Chunk {
+        id: avi::FOURCC::from_str("00dc").unwrap(),
+        content: &frame.pixels,
+    })
+}
+
+fn save_audio_frame_avi(sink: &mut impl Write, sound: &[f32]) -> io::Result<()> {
+    avi::write_chunk(sink, &avi::Chunk {
+        id: avi::FOURCC::from_str("01wb").unwrap(),
+        content: unsafe {
+            slice::from_raw_parts(sound.as_ptr() as *const u8, sound.len()*size_of::<f32>())
+        }
+    })
+}
+
+fn save_frame_yuv4mpeg2(sink: &mut impl Write, frame: &FrameYCbCr) -> io::Result<()> {
     writeln!(sink, "FRAME")?;
     sink.write(&frame.y_plane)?;
     sink.write(&frame.cb_plane)?;
@@ -62,18 +97,24 @@ pub fn main() -> io::Result<()> {
 
     writeln!(&mut video_sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", WIDTH, HEIGHT, FPS)?;
 
-    let mut frame = Frame::default();
+    let mut movi: Vec<u8> = Vec::new();
+
+    let mut frame_ycbcr = FrameYCbCr::default();
+    let mut frame_bgr24 = FrameBGR24::default();
     for frame_index in 0..frames_count {
         canvas.fill(BACKGROUND);
         state.render(&mut canvas, WIDTH);
-        canvas_as_frame(&canvas, &mut frame);
-        save_frame(&mut video_sink, &frame)?;
+        canvas_as_frame_ycbcr(&canvas, &mut frame_ycbcr);
+        canvas_as_frame_bgr24(&canvas, &mut frame_bgr24);
+        save_frame_yuv4mpeg2(&mut video_sink, &frame_ycbcr)?;
+        save_video_frame_avi(&mut movi, &frame_bgr24)?;
 
         sound.fill(0.0);
         state.sound(&mut sound, SOUND_SAMPLE_RATE);
         for sample in sound.iter() {
             audio_sink.write(&sample.to_le_bytes())?;
         }
+        save_audio_frame_avi(&mut movi, &sound)?;
 
         state.update(DELTA_TIME);
 
@@ -81,6 +122,8 @@ pub fn main() -> io::Result<()> {
         print!("Progress {}%\r", progress);
         io::stdout().flush()?;
     }
+
+    avi::fabricate_avi_file("output.avi", &movi, frames_count)?;
 
     println!("Generated {}", VIDEO_OUTPUT_PATH);
     println!("Generated {}", AUDIO_OUTPUT_PATH);
