@@ -12,10 +12,10 @@ use super::config::*;
 
 type GLFWwindow = c_void;
 type GLFWmonitor = c_void;
-type GLFWerrorfun = extern fn(c_int, *const c_char);
-type GLFWkeyfun = extern fn (window: *mut GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int);
+type GLFWerrorfun = extern "C" fn(c_int, *const c_char);
+type GLFWkeyfun = extern "C" fn (window: *mut GLFWwindow, key: c_int, scancode: c_int, action: c_int, mods: c_int);
 
-extern fn glfw_error_callback(code: c_int, description: *const c_char) {
+extern "C" fn glfw_error_callback(code: c_int, description: *const c_char) {
     unsafe {
         // TODO: it is important that the program compiled with -C panic=abort
         //
@@ -26,7 +26,7 @@ extern fn glfw_error_callback(code: c_int, description: *const c_char) {
     }
 }
 
-extern fn glfw_keyboard_callback(window: *mut GLFWwindow, key: c_int, _scancode: c_int, _action: c_int, _mods: c_int) {
+extern "C" fn glfw_keyboard_callback(window: *mut GLFWwindow, key: c_int, _scancode: c_int, _action: c_int, _mods: c_int) {
     unsafe {
         if key == 81 {
             glfwSetWindowShouldClose(window, 1);
@@ -38,7 +38,7 @@ const GLFW_CONTEXT_VERSION_MAJOR: c_int = 0x00022002;
 const GLFW_CONTEXT_VERSION_MINOR: c_int = 0x00022003;
 
 #[link(name = "glfw")]
-extern {
+extern "C" {
     fn glfwInit() -> c_int;
     fn glfwTerminate();
 
@@ -79,7 +79,7 @@ type GLfloat = c_float;
 type GLvoid = c_void;
 
 #[link(name = "GL")]
-extern {
+extern "C" {
     fn glClearColor(red: GLclampf, green: GLclampf, blue: GLclampf, alpha: GLclampf);
     fn glClear(mask: GLbitfield);
     fn glCreateShader(typ: GLenum) -> GLuint;
@@ -108,14 +108,14 @@ extern {
                     border: GLint, format: GLenum, typ: GLenum,
                     pixels: *const GLvoid);
     fn glTexSubImage2D(target: GLenum,
- 	                   level: GLint,
- 	                   xoffset: GLint,
- 	                   yoffset: GLint,
- 	                   width: GLsizei,
- 	                   height: GLsizei,
- 	                   format: GLenum,
- 	                   typ: GLenum,
- 	                   data: *const GLvoid);
+                        level: GLint,
+                        xoffset: GLint,
+                        yoffset: GLint,
+                        width: GLsizei,
+                        height: GLsizei,
+                        format: GLenum,
+                        typ: GLenum,
+                        data: *const GLvoid);
 }
 
 fn shader_type_name(shader_type: GLenum) -> &'static str {
@@ -201,7 +201,7 @@ type pa_buffer_attr = *mut c_void;
 
 #[link(name = "pulse-simple")]
 #[link(name = "pulse")]
-extern {
+extern "C" {
     fn pa_simple_new(server: *const c_char, name: *const c_char,
                      dir: pa_stream_direction,
                      dev: *const c_char,
@@ -348,14 +348,14 @@ pub fn main() {
             canvas.fill(BACKGROUND);
             state.render(&mut canvas, WIDTH);
             glTexSubImage2D(GL_TEXTURE_2D,
- 	                        0,
- 	                        0,
- 	                        0,
- 	                        WIDTH as GLsizei,
- 	                        HEIGHT as GLsizei,
- 	                        GL_RGBA,
- 	                        GL_UNSIGNED_BYTE,
- 	                        canvas.as_ptr() as *const GLvoid);
+                             0,
+                             0,
+                             0,
+                             WIDTH as GLsizei,
+                             HEIGHT as GLsizei,
+                             GL_RGBA,
+                             GL_UNSIGNED_BYTE,
+                             canvas.as_ptr() as *const GLvoid);
 
             sound.fill(0.0);
             state.sound(&mut sound, SOUND_SAMPLE_RATE);
