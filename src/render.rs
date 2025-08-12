@@ -53,18 +53,18 @@ pub fn main() -> io::Result<()> {
     let mut audio_sink = BufWriter::new(File::create(AUDIO_OUTPUT_PATH)?);
     let mut state = State::new(WIDTH as f32, HEIGHT as f32);
 
-    yuv4mpeg2::start(&mut video_sink, WIDTH, HEIGHT, FPS)?;
+    let mut y4m2 = yuv4mpeg2::Container::default();
+
+    y4m2.start(&mut video_sink, WIDTH, HEIGHT, FPS)?;
 
     let mut movi: Vec<u8> = Vec::new();
 
-    let mut frame_ycbcr = yuv4mpeg2::Frame::default();
     let mut frame_bgr24 = Default::default();
     for frame_index in 0..frames_count {
         canvas.fill(BACKGROUND);
         state.render(&mut canvas, WIDTH);
-        frame_ycbcr.from_canvas(&canvas);
+        y4m2.frame(&mut video_sink, &canvas)?;
         canvas_as_frame_bgr24(&canvas, &mut frame_bgr24);
-        yuv4mpeg2::frame(&mut video_sink, &frame_ycbcr)?;
         save_video_frame_avi(&mut movi, &frame_bgr24)?;
 
         sound.fill(0.0);

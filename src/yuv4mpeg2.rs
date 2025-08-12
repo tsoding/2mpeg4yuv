@@ -41,16 +41,24 @@ impl Frame {
     }
 }
 
-/// Prepare the metadata header for the YUV4MPEG2 container
-pub fn start(sink: &mut impl Write, width: usize, height: usize, fps: usize) -> io::Result<()> {
-    writeln!(sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", width, height, fps)
+#[derive(Default)]
+pub struct Container {
+    pub frame: Frame,
 }
 
-/// Emit a frame into YUV4MPEG2 container
-pub fn frame(sink: &mut impl Write, frame: &Frame) -> io::Result<()> {
-    writeln!(sink, "FRAME")?;
-    sink.write(&frame.y_plane)?;
-    sink.write(&frame.cb_plane)?;
-    sink.write(&frame.cr_plane)?;
-    Ok(())
+impl Container {
+    /// Prepare the metadata header for the YUV4MPEG2 container
+    pub fn start(&mut self, sink: &mut impl Write, width: usize, height: usize, fps: usize) -> io::Result<()> {
+        writeln!(sink, "YUV4MPEG2 W{} H{} F{}:1 Ip A1:1 C444", width, height, fps)
+    }
+
+    /// Emit a frame into YUV4MPEG2 container
+    pub fn frame(&mut self, sink: &mut impl Write, canvas: &[u32]) -> io::Result<()> {
+        self.frame.from_canvas(canvas);
+        writeln!(sink, "FRAME")?;
+        sink.write(&self.frame.y_plane)?;
+        sink.write(&self.frame.cb_plane)?;
+        sink.write(&self.frame.cr_plane)?;
+        Ok(())
+    }
 }
