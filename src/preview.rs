@@ -1,5 +1,8 @@
 #![allow(non_camel_case_types)]
 
+// TODO: do not compile preview on non-linux platforms.
+// Use some conditional compilation magic or what not.
+
 // TODO: try to port this module to windows
 // At least see what needs to be done to make this work on windows
 // and create corresponding TODOs

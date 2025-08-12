@@ -20,6 +20,9 @@ $ cargo run --release -- preview
 > [!WARNING]
 > The preview may potentially produce loud clipping sounds!
 
+> [!IMPORTANT]
+> The preview currently works only on Linux, but feel free to contribute support for more platforms.
+
 ### Render
 
 ```console
