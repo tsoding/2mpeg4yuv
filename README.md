@@ -11,8 +11,7 @@ Install the [Rust Compiler](https://www.rust-lang.org/)
 ### Preview
 
 ```console
-$ ./build.sh
-$ ./2mpeg4yuv preview
+$ cargo run --release -- preview
 ```
 
 **WARNING! The preview may potentially produce loud clipping sounds!**
@@ -20,8 +19,8 @@ $ ./2mpeg4yuv preview
 ### Render
 
 ```console
-$ ./render.sh
-$ mplayer output.mp4
+$ cargo run --release -- render
+$ mpv output.mp4
 ```
 
 **WARNING! The render generates files up to 1.3GB! Make sure you have enough disk space**

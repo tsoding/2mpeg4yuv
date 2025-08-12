@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io;
 use std::io::{Write, BufWriter};
-use sim::*;
+use super::sim::*;
 use super::config::*;
 use super::avi;
 use std::slice;
