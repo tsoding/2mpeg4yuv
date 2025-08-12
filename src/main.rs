@@ -3,6 +3,7 @@ mod render;
 mod preview;
 mod config;
 mod avi;
+mod yuv4mpeg2;
 
 use std::io;
 use std::io::Write;
