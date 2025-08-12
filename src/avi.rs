@@ -1,3 +1,6 @@
+//! AVI container
+//!
+//! https://learn.microsoft.com/en-us/windows/win32/directshow/avi-file-format
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
@@ -13,7 +16,7 @@ use std::slice;
 
 type Result<T> = result::Result<T, ()>;
 
-pub fn chop_u32(content: &mut &[u8]) -> u32 {
+fn chop_u32(content: &mut &[u8]) -> u32 {
     let result = u32::from_le_bytes((*content)[0..4].try_into().unwrap());
     (*content) = &(*content)[4..];
     result
@@ -48,9 +51,9 @@ fn chop_entry<'a>(content: &mut &'a [u8]) -> Entry<'a> {
 }
 
 #[derive(Debug)]
-pub struct Chunk<'a> {
-    pub id: FOURCC,
-    pub content: &'a [u8]
+struct Chunk<'a> {
+    id: FOURCC,
+    content: &'a [u8]
 }
 
 fn chop_chunk<'a>(content: &mut &'a [u8]) -> Chunk<'a> {
@@ -86,19 +89,19 @@ const vids: u32 = 0x73646976;
 const auds: u32 = 0x73647561;
 const movi: u32 = 0x69766f6d;
 
-pub fn pad_size(size: usize, width: usize) -> usize {
+fn pad_size(size: usize, width: usize) -> usize {
     (size + width - 1)/width*width
 }
 
-pub type WORD = u16;
-pub type DWORD = u32;
-pub type LONG = i32;
-pub type SHORT = i16;
+type WORD = u16;
+type DWORD = u32;
+type LONG = i32;
+type SHORT = i16;
 
-pub struct FOURCC([u8; 4]);
+struct FOURCC([u8; 4]);
 
 impl FOURCC {
-    pub fn from_str(s: &str) -> Option<Self> {
+    fn from_str(s: &str) -> Option<Self> {
         s.as_bytes().try_into().ok().map(FOURCC)
     }
 
@@ -138,7 +141,7 @@ struct RECT {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct AVIMainHeader {
+struct AVIMainHeader {
     // fcc: FOURCC,
     // cb: DWORD,
     dwMicroSecPerFrame: DWORD,
@@ -156,7 +159,7 @@ pub struct AVIMainHeader {
 
 #[derive(Debug)]
 #[repr(C)]
-pub struct AVIStreamHeader {
+struct AVIStreamHeader {
     fccType: FOURCC,
     fccHandler: FOURCC,
     dwFlags: DWORD,
@@ -298,7 +301,7 @@ fn parse_strl(mut content: &[u8], level: usize) {
     }
 }
 
-pub fn parse_hdrl(mut content: &[u8], level: usize) {
+fn parse_hdrl(mut content: &[u8], level: usize) {
     let chunk = chop_chunk(&mut content);
     assert!(chunk.id.to_u32() == avih);
     let header = transmute_chunk_to_struct::<AVIMainHeader>(&chunk);
@@ -341,7 +344,7 @@ fn parse_movi(content: &[u8], level: usize) {
     dump_all_chunks_with_id(content, _01wb, level, "extracted_audio.bin");
 }
 
-pub fn parse_avi(mut content: &[u8], level: usize) {
+fn parse_avi(mut content: &[u8], level: usize) {
     let list = chop_list(&mut content);
     assert!(list.r#type.to_u32() == hdrl);
     dump_list(&list, level);
@@ -417,7 +420,7 @@ fn hack_avi_file(file_path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn hardcoded_avi_main_header(dwTotalFrames: DWORD) -> AVIMainHeader {
+fn hardcoded_avi_main_header(dwTotalFrames: DWORD) -> AVIMainHeader {
     AVIMainHeader {
         dwMicroSecPerFrame: 16666,
         dwMaxBytesPerSec: 86592000,
@@ -433,7 +436,7 @@ pub fn hardcoded_avi_main_header(dwTotalFrames: DWORD) -> AVIMainHeader {
     }
 }
 
-pub fn hardcoded_avi_stream_header_vids(dwLength: DWORD) -> AVIStreamHeader {
+fn hardcoded_avi_stream_header_vids(dwLength: DWORD) -> AVIStreamHeader {
     AVIStreamHeader {
         fccType: FOURCC::from_u32(vids),
         fccHandler: FOURCC::from_u32(0x0),
@@ -471,7 +474,7 @@ const HARDCODED_BITMAPINFOHEADER: BITMAPINFOHEADER = BITMAPINFOHEADER {
     biClrImportant: 0,
 };
 
-pub fn hardcoded_avi_stream_header_auds(dwLength: DWORD) -> AVIStreamHeader {
+fn hardcoded_avi_stream_header_auds(dwLength: DWORD) -> AVIStreamHeader {
     AVIStreamHeader {
         fccType: FOURCC::from_u32(auds),
         fccHandler: FOURCC::from_u32(0x1),
@@ -524,7 +527,7 @@ fn write_list<'a>(sink: &mut impl io::Write, list: &List<'a>) -> io::Result<()> 
     Ok(())
 }
 
-pub fn write_chunk<'a>(sink: &mut impl io::Write, chunk: &Chunk<'a>) -> io::Result<()> {
+fn write_chunk<'a>(sink: &mut impl io::Write, chunk: &Chunk<'a>) -> io::Result<()> {
     sink.write(&chunk.id.to_u32().to_le_bytes())?;
     let chunk_size = chunk.content.len() as u32;
     sink.write(&chunk_size.to_le_bytes())?;
@@ -585,7 +588,7 @@ fn fabricate_avi(movi_bytes: &[u8], frames_count: usize) -> io::Result<Vec<u8>> 
     Ok(avi)
 }
 
-pub fn fabricate_avi_file(file_path: &str, movi_bytes: &[u8], frames_count: usize) -> io::Result<()> {
+fn fabricate_avi_file(file_path: &str, movi_bytes: &[u8], frames_count: usize) -> io::Result<()> {
     let mut riff: Vec<u8> = Vec::new();
 
     write_chunk(&mut riff, &Chunk {
@@ -595,6 +598,64 @@ pub fn fabricate_avi_file(file_path: &str, movi_bytes: &[u8], frames_count: usiz
 
     println!("Generating {file_path}...");
     fs::write(file_path, &riff)
+}
+
+#[derive(Default)]
+struct FrameBGR24 {
+    pixels: Vec<u8>,
+}
+
+impl FrameBGR24 {
+    fn from_canvas(&mut self, canvas: &[u32]) {
+        self.pixels.clear();
+        for pixel in canvas {
+            let r = ((pixel >> (8*2)) & 0xFF) as u8;
+            let b = ((pixel >> (8*0)) & 0xFF) as u8;
+            let g = ((pixel >> (8*1)) & 0xFF) as u8;
+            self.pixels.push(b);
+            self.pixels.push(g);
+            self.pixels.push(r);
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Container {
+    frame_bgr24: FrameBGR24,
+    movi: Vec<u8>,
+    frame_count: usize,
+    width: usize,
+    height: usize,
+    fps: usize,
+}
+
+impl Container {
+    pub fn start(&mut self, width: usize, height: usize, fps: usize) {
+        self.frame_count = 0;
+        self.movi.clear();
+        self.width = width;
+        self.height = height;
+        self.fps = fps;
+    }
+
+    pub fn frame(&mut self, canvas: &[u32], sound: &[f32]) -> io::Result<()> {
+        self.frame_count += 1;
+        self.frame_bgr24.from_canvas(canvas);
+        write_chunk(&mut self.movi, &Chunk {
+            id: FOURCC::from_str("00dc").unwrap(),
+            content: &self.frame_bgr24.pixels,
+        })?;
+        write_chunk(&mut self.movi, &Chunk {
+            id: FOURCC::from_str("01wb").unwrap(),
+            content: unsafe {
+                slice::from_raw_parts(sound.as_ptr() as *const u8, sound.len()*size_of::<f32>())
+            }
+        })
+    }
+
+    pub fn finish(&mut self, file_path: &str) -> io::Result<()> {
+        fabricate_avi_file(file_path, &self.movi, self.frame_count)
+    }
 }
 
 pub fn main() -> Result<()> {

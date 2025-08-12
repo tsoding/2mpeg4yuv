@@ -1,14 +1,14 @@
 //! YUV4MPEG2 container
 use std::io::{self, Write};
 
-pub struct YCbCr {
-    pub y: u8,
-    pub cb: u8,
-    pub cr: u8,
+struct YCbCr {
+    y: u8,
+    cb: u8,
+    cr: u8,
 }
 
 impl YCbCr {
-    pub fn from_rgb(pixel: u32) -> Self {
+    fn from_rgb(pixel: u32) -> Self {
         let rf = ((pixel >> (8*2)) & 0xFF) as f32;
         let gf = ((pixel >> (8*1)) & 0xFF) as f32;
         let bf = ((pixel >> (8*0)) & 0xFF) as f32;
@@ -21,14 +21,14 @@ impl YCbCr {
 
 
 #[derive(Default)]
-pub struct Frame {
-    pub y_plane: Vec<u8>,
-    pub cb_plane: Vec<u8>,
-    pub cr_plane: Vec<u8>,
+struct Frame {
+    y_plane: Vec<u8>,
+    cb_plane: Vec<u8>,
+    cr_plane: Vec<u8>,
 }
 
 impl Frame {
-    pub fn from_canvas(&mut self, canvas: &[u32]) {
+    fn from_canvas(&mut self, canvas: &[u32]) {
         self.y_plane.clear();
         self.cb_plane.clear();
         self.cr_plane.clear();
@@ -43,7 +43,7 @@ impl Frame {
 
 #[derive(Default)]
 pub struct Container {
-    pub frame: Frame,
+    frame: Frame,
 }
 
 impl Container {
