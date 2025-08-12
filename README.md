@@ -8,13 +8,17 @@ Simple playground project to explore the [YUV4MPEG2](https://wiki.multimedia.cx/
 
 Install the [Rust Compiler](https://www.rust-lang.org/)
 
+> [!IMPORTANT]
+> Make sure to always build with the `--release`, because the default Rust build is offensively slow.
+
 ### Preview
 
 ```console
 $ cargo run --release -- preview
 ```
 
-**WARNING! The preview may potentially produce loud clipping sounds!**
+> [!WARNING]
+> The preview may potentially produce loud clipping sounds!
 
 ### Render
 
@@ -23,4 +27,5 @@ $ cargo run --release -- render
 $ mpv output.mp4
 ```
 
-**WARNING! The render generates files up to 1.3GB! Make sure you have enough disk space**
+> [!WARNING]
+> The render generates files up to 1.3GB! Make sure you have enough disk space.
